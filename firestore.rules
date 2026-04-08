@@ -1,0 +1,71 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Helper functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function getUserData() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+    
+    function isSchoolMember(schoolId) {
+      return isAuthenticated() && getUserData().schoolId == schoolId;
+    }
+    
+    function hasRole(role) {
+      return isAuthenticated() && getUserData().role == role;
+    }
+
+    function isAdmin() {
+      return hasRole('admin') || (request.auth.token.email == "amirmamedgasanov5@gmail.com" && request.auth.token.email_verified == true);
+    }
+
+    // Schools
+    match /schools/{schoolId} {
+      allow read: if isAuthenticated() && (isSchoolMember(schoolId) || isAdmin());
+      allow write: if isAdmin();
+    }
+
+    // Users
+    match /users/{userId} {
+      allow read: if isAuthenticated() && (request.auth.uid == userId || isSchoolMember(resource.data.schoolId) || isAdmin());
+      allow create: if isAuthenticated(); // Allow initial profile creation
+      allow update: if isAuthenticated() && (request.auth.uid == userId || isAdmin());
+    }
+
+    // Classes, Subjects, Lessons
+    match /classes/{classId} {
+      allow read: if isAuthenticated() && (isSchoolMember(resource.data.schoolId) || isAdmin());
+      allow write: if hasRole('teacher') || hasRole('admin') || isAdmin();
+    }
+    
+    match /subjects/{subjectId} {
+      allow read: if isAuthenticated() && (isSchoolMember(resource.data.schoolId) || isAdmin());
+      allow write: if hasRole('teacher') || hasRole('admin') || isAdmin();
+    }
+    
+    match /lessons/{lessonId} {
+      allow read: if isAuthenticated() && (isSchoolMember(resource.data.schoolId) || isAdmin());
+      allow write: if hasRole('teacher') || hasRole('admin') || isAdmin();
+    }
+
+    // Grades and Attendance
+    match /grades/{gradeId} {
+      allow read: if isAuthenticated() && (isSchoolMember(resource.data.schoolId) || isAdmin());
+      allow write: if hasRole('teacher') || hasRole('admin') || isAdmin();
+    }
+    
+    match /attendance/{attendanceId} {
+      allow read: if isAuthenticated() && (isSchoolMember(resource.data.schoolId) || isAdmin());
+      allow write: if hasRole('teacher') || hasRole('admin') || isAdmin();
+    }
+
+    match /schedule/{scheduleId} {
+      allow read: if isAuthenticated() && (isSchoolMember(resource.data.schoolId) || isAdmin());
+      allow write: if hasRole('teacher') || hasRole('admin') || isAdmin();
+    }
+  }
+}
